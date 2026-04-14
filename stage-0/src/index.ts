@@ -10,25 +10,30 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req: Request, res: Response) => {
-  res.send({ message: 'Hello from Express on Vercel!' });
+  res.status(200).json({ message: 'Hello from Express on Vercel!' });
 });
 
 app.get('/api/classify', async (req: Request, res: Response) => {
   let name = req.query.name as string | undefined;
-  
-  if (typeof name !== 'string') {
-    return res.status(422).json({ status: "error", error: "name is not a string" });
-  }
-  
-  name = name.replace(/[^a-zA-Z]/g, '');
-  
-  if (name.length === 0) {
+
+  if (!name) {
     return res.status(400).json({ status: "error", error: "Missing or empty name parameter" 
     });
   }
+
+  name = name?.replace(/[^a-zA-Z]/g, '');
+  
+  if (typeof name !== 'string' || name.length === 0) {
+    return res.status(422).json({ status: "error", error: "name is not a string" });
+  }
+  
+  
   
   try {
-    const response = await axios.get(`https://api.genderize.io?name=${encodeURIComponent(name)}`);
+    const response = await axios.get(
+      `https://api.genderize.io?name=${encodeURIComponent(name)}`,
+    { timeout: 500 }
+    );
 
     if (!response.data || typeof response.data !== 'object') {
       return res.status(502).json({ status: "error", message: "Invalid response from upstream API" });
