@@ -3,7 +3,7 @@ import cors from 'cors';
 import express, {Request, Response} from 'express';
 import { checkData, findHighestCountryProbability, parseNumber, classifyAge } from './checkData.js';
 import { uuidv7 } from 'uuidv7';
-import { Profile, saveProfile, getProfileByName, getProfileById, getAllProfiles, deleteProfile } from '../supabase.service.js';
+import { saveProfile, getProfileByName, getProfileById, getAllProfiles, deleteProfile } from '../supabase.service.js';
 
 const app = express();
 app.use(express.json());
