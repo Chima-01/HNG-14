@@ -3,7 +3,9 @@ import cors from 'cors';
 import express, {Request, Response} from 'express';
 import { checkData, findHighestCountryProbability, parseNumber, classifyAge } from './checkData.js';
 import { uuidv7 } from 'uuidv7';
-import { saveProfile, getProfileByName, getProfileById, getAllProfiles, deleteProfile } from '../supabase.service.js';
+import { saveProfile, getProfileByName, getProfileById, getProfiles, deleteProfile, ProfileSchema, getTotalNumberOFProfiles } from '../supabase.service.js';
+import { FilterOptionsSchema } from '../features.js';
+import { parseNaturalLanguage } from '../features.js';
 
 const app = express();
 app.use(cors());
@@ -59,26 +61,32 @@ app.post('/api/profiles', async (req: Request, res: Response) => {
     const ageValue = parseNumber(age);
     const prob = parseFloat(probability) || 0;
     const highestCountryProb = findHighestCountryProbability(country);
+    const country_name = highestCountryProb ? new Intl.DisplayNames(['en'], { type: 'region' }).of(highestCountryProb.country_id) : 'Unknown';
 
     if (isNaN(prob) || isNaN(sample_size) || isNaN(ageValue))  {
       return res.status(422).json({status: "error", message: "Invalid type" });
     }
     const ageGroup = classifyAge(ageValue);
 
-    const profileData = {
+    const profileData: ProfileSchema = {
       id: uuidv7(),
       name: cacheName,
       gender: gender,
       gender_probability: prob,
-      sample_size: sample_size,
       age: ageValue,
       age_group: ageGroup,
       country_id: highestCountryProb.country_id,
+      country_name: country_name as string,
       country_probability: highestCountryProb.probability,
       created_at: new Date().toISOString()
     };
 
-   await saveProfile(profileData); 
+   const status = await saveProfile(profileData);
+
+   if (status !== 201) {
+    return res.status(500).json({ status: "error", message: "Failed to save profile" });
+   }
+
     return res.status(201).json({ 
       status: "success",
       data: { ...profileData, name: cleanName }
@@ -93,31 +101,104 @@ app.post('/api/profiles', async (req: Request, res: Response) => {
 
 // GET /api/profiles - Fetch all profiles
 app.get('/api/profiles', async (req: Request, res: Response) => {
+  const { query } = req;
+
+ const parseResult = FilterOptionsSchema.safeParse(query);
+
+  if (!parseResult.success) {
+    return res.status(422).json({
+      status: "error",
+      message: "Invalid parameter type",
+    })
+  }
+
+  const result = parseResult.data;
+
   try {
-    const profiles = await getAllProfiles();
-    
+    const profiles = await getProfiles(result);
+    const total = await getTotalNumberOFProfiles();
+
     if (!profiles || profiles.length === 0) {
-      return res.status(404).json({ 
-        status: "error", 
-        message: "No profile found" 
+      return res.status(404).json({
+        status: "error",
+        message: "No profile found"
       });
     }
-    
     return res.status(200).json({ 
       status: "success",
-      count: profiles.length,
-      data: profiles 
+      page: parseResult.data.page,
+      limit: parseResult.data.limit,
+      total: total,
+      data: profiles
     });
   } catch (error) {
     console.error('Error fetching profiles:', error);
     return res.status(500).json({ 
       status: "error", 
-      message: "Failed to fetch profiles" 
+      message: "Server failure"
     });
   }
 });
 
-// GET /api/profiles/{id} - Fetch a single profile by ID
+
+app.get('/api/profiles/search', async (req: Request, res: Response) => {
+  const { q } = req.query as { q: string | undefined };
+  console.log('Received search query:', q);
+
+  if (!q || typeof q !== 'string' || q.trim() === '') {
+    return res.status(400).json({ 
+      status: "error", 
+      message: "Missing or empty parameter" 
+    });
+  }
+
+  const parsedOptions = parseNaturalLanguage(decodeURIComponent(q));
+
+  if (!parsedOptions) { 
+    return res.status(422).json({ 
+      status: "error",
+      message: "Unable to Interpret query"
+    });
+  }
+  const optionsResult = FilterOptionsSchema.safeParse(parsedOptions);
+
+  if (!optionsResult.success) { 
+    return res.status(422).json({
+      status: "error",
+      message: "Invalid parameter type",
+    });
+  }
+
+  const result = optionsResult.data;
+
+  try {
+    const profiles = await getProfiles(result);
+    const total = await getTotalNumberOFProfiles();
+
+    if (!profiles || profiles.length === 0) { 
+      return res.status(404).json({
+        status: "error",
+        message: "No profile found"
+      });
+    }
+    return res.status(200).json({ 
+      status: "success",
+      page: optionsResult.data.page ?? 1,
+      limit: optionsResult.data.limit ?? 10,
+      total: total,
+      data: profiles
+    });
+  } catch (error) { 
+    console.error('Error fetching profiles:', error);
+    return res.status(500).json({ 
+      status: "error",
+      message: "Server failure"
+     });
+   }
+  }
+);
+
+//Fetch a single profile by ID
 app.get('/api/profiles/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   
@@ -151,7 +232,7 @@ app.get('/api/profiles/:id', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/profiles/{id} - Delete a profile by ID
+//Delete a profile by ID
 app.delete('/api/profiles/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   
@@ -172,7 +253,6 @@ app.delete('/api/profiles/:id', async (req: Request, res: Response) => {
       });
     }
     
-    // Delete the profile
     await deleteProfile(id);
     
     console.log(`Profile with ID ${id} deleted successfully`);

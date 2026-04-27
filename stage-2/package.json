@@ -1,0 +1,24 @@
+{
+  "name": "express",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.3",
+    "axios": "^1.15.0",
+    "cors": "^2.8.6",
+    "countries-list": "^3.3.0",
+    "dotenv": "^17.4.2",
+    "express": "5.1.0",
+    "uuidv7": "^1.2.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "5.0.0",
+    "@types/node": "20.11.17",
+    "typescript": "5.8.3"
+  }
+}
