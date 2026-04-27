@@ -4,8 +4,7 @@ import express, {Request, Response} from 'express';
 import { checkData, findHighestCountryProbability, parseNumber, classifyAge } from './checkData.js';
 import { uuidv7 } from 'uuidv7';
 import { saveProfile, getProfileByName, getProfileById, getProfiles, deleteProfile, ProfileSchema, getTotalNumberOFProfiles } from '../supabase.service.js';
-import { FilterOptionsSchema } from '../features.js';
-import { parseNaturalLanguage } from '../features.js';
+import { FilterOptionsSchema, parseNaturalLanguage } from '../features.js';
 
 const app = express();
 app.use(cors());
@@ -143,7 +142,6 @@ app.get('/api/profiles', async (req: Request, res: Response) => {
 
 app.get('/api/profiles/search', async (req: Request, res: Response) => {
   const { q } = req.query as { q: string | undefined };
-  console.log('Received search query:', q);
 
   if (!q || typeof q !== 'string' || q.trim() === '') {
     return res.status(400).json({ 

@@ -39,8 +39,3 @@ export const classifyAge = (age: number) => {
     default: return "Senior";
   }
 };
-
-
-// export const checkQuery = (query) {
-//   return null
-// }
